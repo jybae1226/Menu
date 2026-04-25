@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buddy Menu Helper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <script src='https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js'></script>
+</head>
+<body class="bg-gray-100 p-5">
+
+    <div class="max-w-md mx-auto bg-white p-6 rounded-xl shadow-md">
+        <h1 class="text-2xl font-bold mb-6 text-center text-blue-600">🍴 Buddy Menu System</h1>
+
+        <section class="mb-10 p-4 border-2 border-dashed border-blue-200 rounded-lg">
+            <h2 class="font-bold mb-2">1. 관리자: 메뉴판 등록</h2>
+            <input type="file" id="menu-image" accept="image/*" class="text-sm mb-2">
+            <button onclick="recognizeText()" id="ocr-btn" class="w-full bg-blue-500 text-white py-2 rounded">사진 인식 시작</button>
+            <div id="status" class="text-xs mt-2 text-gray-500"></div>
+            <textarea id="menu-list" class="w-full mt-3 p-2 border text-sm" rows="4" placeholder="인식된 메뉴가 여기 뜹니다. (쉼표로 구분해서 수정 가능)"></textarea>
+            <button onclick="postMenu()" class="w-full mt-2 bg-green-500 text-white py-2 rounded">학생들에게 메뉴 공개</button>
+        </section>
+
+        <section class="mb-10">
+            <h2 class="font-bold mb-2 text-red-500">2. 학생: 메뉴 선택</h2>
+            <div id="student-menu-display" class="space-y-2 mb-4">
+                </div>
+            <input type="text" id="student-name" placeholder="Enter your name" class="w-full p-2 border rounded mb-2">
+            <button onclick="submitOrder()" class="w-full bg-red-400 text-white py-3 rounded-lg font-bold">주문 신청 (Order)</button>
+        </section>
+
+        <section class="border-t pt-5">
+            <h2 class="font-bold mb-4">3. 주문 현황 (Dashboard)</h2>
+            <div class="flex gap-2 mb-4">
+                <button onclick="showByMenu()" class="text-xs bg-gray-200 px-3 py-1 rounded">메뉴별 보기</button>
+                <button onclick="showByPerson()" class="text-xs bg-gray-200 px-3 py-1 rounded">인원별 보기</button>
+            </div>
+            <div id="result-display" class="text-sm space-y-1 bg-gray-50 p-3 rounded">
+                여기에 실시간 통계가 표시됩니다.
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // --- 1. Firebase 설정 (여기에 자신의 정보를 복사하세요) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBzR_ECNVoulaILVVh5tPqPOenfq-MNIqA",
+            authDomain: "menu-657dc.firebaseapp.com",
+            projectId: "menu-657dc",
+            storageBucket: "menu-657dc.firebasestorage.app",
+            messagingSenderId: "228708591373",
+            appId: "1:228708591373:web:884f2c2e90c4323254f244"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let selectedMenu = "";
+
+        // --- 2. 사진 인식 (OCR) 기능 ---
+        async function recognizeText() {
+            const file = document.getElementById('menu-image').files[0];
+            if (!file) return alert("사진을 선택해주세요!");
+            
+            const btn = document.getElementById('ocr-btn');
+            const status = document.getElementById('status');
+            btn.disabled = true;
+            status.innerText = "Scanning text... (Wait 10-20s)";
+
+            const { data: { text } } = await Tesseract.recognize(file, 'eng+kor');
+            // 간단하게 엔터로 구분된 텍스트를 쉼표로 변환
+            document.getElementById('menu-list').value = text.split('\n').filter(t => t.trim().length > 1).join(', ');
+            
+            btn.disabled = false;
+            status.innerText = "Scan complete!";
+        }
+
+        // --- 3. 메뉴 DB 등록 ---
+        function postMenu() {
+            const menus = document.getElementById('menu-list').value.split(',').map(m => m.trim());
+            db.collection("settings").doc("currentMenu").set({ items: menus });
+            alert("메뉴가 업데이트되었습니다!");
+            loadMenu();
+        }
+
+        // --- 4. 학생용 메뉴 목록 불러오기 ---
+        function loadMenu() {
+            db.collection("settings").doc("currentMenu").onSnapshot((doc) => {
+                const container = document.getElementById('student-menu-display');
+                container.innerHTML = "";
+                doc.data().items.forEach(item => {
+                    const btn = document.createElement('button');
+                    btn.innerText = item;
+                    btn.className = "w-full p-2 border rounded bg-white hover:bg-blue-50 text-left";
+                    btn.onclick = () => {
+                        selectedMenu = item;
+                        Array.from(container.children).forEach(b => b.classList.remove('bg-blue-200'));
+                        btn.classList.add('bg-blue-200');
+                    };
+                    container.appendChild(btn);
+                });
+            });
+        }
+
+        // --- 5. 주문 제출 ---
+        function submitOrder() {
+            const name = document.getElementById('student-name').value;
+            if (!name || !selectedMenu) return alert("이름과 메뉴를 선택하세요!");
+
+            db.collection("orders").add({
+                name: name,
+                menu: selectedMenu,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            alert("Order Complete!");
+        }
+
+        // --- 6. 결과 보기 ---
+        function showByMenu() {
+            db.collection("orders").get().then(snap => {
+                const stats = {};
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    stats[data.menu] = (stats[data.menu] || 0) + 1;
+                });
+                let html = "<strong>[메뉴별 통계]</strong><br>";
+                for (let m in stats) html += `${m}: ${stats[m]}명<br>`;
+                document.getElementById('result-display').innerHTML = html;
+            });
+        }
+
+        function showByPerson() {
+            db.collection("orders").orderBy("timestamp", "desc").get().then(snap => {
+                let html = "<strong>[인원별 주문 현황]</strong><br>";
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    html += `${data.name} ➡️ ${data.menu}<br>`;
+                });
+                document.getElementById('result-display').innerHTML = html;
+            });
+        }
+
+        // 페이지 로드 시 메뉴 불러오기
+        loadMenu();
+    </script>
+</body>
+</html>
