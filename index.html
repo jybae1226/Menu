@@ -3,73 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Buddy Menu Pro</title>
+    <title>Buddy Menu Pro (KR/EN)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
     <script src='https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js'></script>
     <style>
-        .selected { border: 3px solid #6366f1 !important; background-color: #eef2ff !important; }
+        .selected { border: 3px solid #6366f1 !important; background-color: #eef2ff !important; font-weight: bold; }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen p-4 font-sans">
 
     <div class="max-w-xl mx-auto space-y-6">
-        <header class="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm">
+        <header class="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
             <h1 class="text-xl font-black text-indigo-600">🍴 Buddy Menu</h1>
-            <button onclick="toggleAdmin()" class="text-xs bg-slate-200 px-3 py-1 rounded-full text-slate-500">Admin Mode</button>
+            <button onclick="toggleAdmin()" class="text-xs bg-slate-200 px-3 py-1 rounded-full text-slate-500 font-bold">관리 모드 (Admin)</button>
         </header>
 
-        <section id="admin-panel" class="hidden space-y-4 bg-indigo-50 p-6 rounded-2xl border-2 border-indigo-200">
+        <section id="admin-panel" class="hidden space-y-4 bg-indigo-50 p-6 rounded-2xl border-2 border-indigo-200 shadow-xl">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-indigo-900 text-lg">Admin Dashboard</h2>
-                <button onclick="closeAdmin()" class="text-xs text-indigo-400">Close</button>
+                <button onclick="resetSystem()" class="text-[10px] bg-red-100 text-red-600 px-2 py-1 rounded">식당 데이터 전체삭제</button>
             </div>
 
-            <div class="bg-white p-4 rounded-xl shadow-inner space-y-3">
-                <p class="text-xs font-bold text-slate-400 uppercase">1. Upload & Translate</p>
+            <div class="bg-white p-4 rounded-xl shadow-inner space-y-3 border border-indigo-100">
+                <p class="text-xs font-bold text-slate-400 uppercase">1. 메뉴판 사진 업로드</p>
                 <input type="file" id="menu-image" accept="image/*" class="text-sm block w-full">
-                <button onclick="processMenu()" id="ocr-btn" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold">Scan & Translate (KR→EN)</button>
-                <div id="status" class="text-[10px] text-center text-indigo-400"></div>
+                <button onclick="processMenu()" id="ocr-btn" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold">인식 및 번역 (KR+EN)</button>
+                <div id="status" class="text-[10px] text-center text-indigo-500 font-bold animate-pulse"></div>
                 
-                <p class="text-xs font-bold text-slate-400 uppercase mt-4">2. Edit List (Use '/' to separate)</p>
-                <textarea id="menu-list-input" class="w-full p-3 border rounded-lg text-sm h-24" placeholder="Menu 1 / Menu 2 / Menu 3"></textarea>
-                <button onclick="saveMenu()" class="w-full bg-emerald-500 text-white py-2 rounded-lg font-bold">Publish to Students</button>
+                <p class="text-xs font-bold text-slate-400 uppercase mt-4">2. 목록 수정 ('/'로 구분)</p>
+                <textarea id="menu-list-input" class="w-full p-3 border rounded-lg text-sm h-32" placeholder="메뉴 이름 (Menu Name) / ..."></textarea>
+                <button onclick="saveMenu()" class="w-full bg-emerald-500 text-white py-2 rounded-lg font-bold">학생들에게 메뉴 공개</button>
             </div>
 
-            <div class="bg-white p-4 rounded-xl shadow-inner">
-                <div class="flex justify-between items-center mb-4">
-                    <p class="text-xs font-bold text-slate-400 uppercase">3. Order Summary</p>
-                    <button onclick="refreshStats()" class="text-xs bg-slate-100 px-2 py-1 rounded">Refresh</button>
-                </div>
+            <div class="bg-white p-4 rounded-xl shadow-inner border border-indigo-100">
+                <p class="text-xs font-bold text-slate-400 uppercase mb-4">3. 주문 실시간 합계</p>
                 <div id="admin-stats-area" class="text-sm space-y-4">
                     </div>
             </div>
         </section>
 
-        <section id="menu-photo-viewer" class="hidden bg-white p-2 rounded-2xl shadow-sm overflow-hidden">
-            <img id="shared-menu-img" class="w-full h-auto rounded-xl" src="" alt="Menu Original Photo">
-            <p class="text-[10px] text-center text-slate-400 py-1 font-medium italic">Original Menu Photo</p>
+        <section id="menu-photo-viewer" class="hidden bg-white p-2 rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+            <img id="shared-menu-img" class="w-full h-auto rounded-xl" src="" alt="Menu">
+            <p class="text-[10px] text-center text-slate-400 py-1 italic">Original Menu Photo</p>
         </section>
 
-        <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <section class="bg-white p-6 rounded-2xl shadow-md border border-slate-200">
             <div class="mb-4">
-                <h2 class="text-lg font-bold text-slate-800">Select Menu (Multiple)</h2>
-                <p class="text-xs text-slate-400">Choose all items you want to order</p>
+                <h2 class="text-xl font-black text-slate-800 italic underline decoration-indigo-300">Choose your menu!</h2>
+                <p class="text-xs text-slate-400">Multiple selection is possible.</p>
             </div>
             
             <div id="student-menu-container" class="grid grid-cols-1 gap-3 mb-6">
                 </div>
 
-            <div class="space-y-3">
-                <input type="text" id="student-name" placeholder="Enter your name" class="w-full p-4 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-400 outline-none font-medium">
-                <button onclick="submitOrder()" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-black text-lg shadow-lg hover:bg-indigo-700 active:scale-95 transition-all">Submit Order</button>
+            <div class="space-y-3 pt-4 border-t border-slate-100">
+                <input type="text" id="student-name" placeholder="Enter your name" class="w-full p-4 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-400 outline-none font-bold text-slate-700">
+                <button onclick="submitOrder()" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-black text-lg shadow-lg active:scale-95 transition-all">Submit Order</button>
             </div>
         </section>
     </div>
 
     <script>
-        // --- 설정 (본인의 정보로 교체 필수!) ---
+        // --- 설정 (Firebase 설정은 유지) ---
         const firebaseConfig = {
             apiKey: "AIzaSyBzR_ECNVoulaILVVh5tPqPOenfq-MNIqA",
             authDomain: "menu-657dc.firebaseapp.com",
@@ -79,89 +76,88 @@
             appId: "1:228708591373:web:884f2c2e90c4323254f244"
         };
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzH1pghDcM-m3ELfqdJ3i2Iy0I2n1Fx9YLaT4kW57Iyppjm3KhXFPEC6pU79XTYd9j7LA/exec";
-        const ADMIN_PIN = "1234"; // 관리자 암호 설정
+        const ADMIN_PIN = "4321";
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         let selectedMenus = new Set();
-        let base64Image = "";
+        let currentBase64 = "";
 
-        // [기능 0] 관리자 토글
+        // 관리자 모드 열기
         function toggleAdmin() {
-            const pin = prompt("Enter Admin PIN:");
-            if(pin === ADMIN_PIN) {
-                document.getElementById('admin-panel').classList.remove('hidden');
-                refreshStats();
-            } else {
-                alert("Wrong PIN!");
-            }
+            const pin = prompt("Admin PIN:");
+            if(pin === ADMIN_PIN) document.getElementById('admin-panel').classList.toggle('hidden');
+            else alert("Access Denied");
         }
-        function closeAdmin() { document.getElementById('admin-panel').classList.add('hidden'); }
 
-        // [기능 1] 사진 처리 및 번역 (구분자 / 사용)
+        // [기능 1] 한/영 병기 프로세싱
         async function processMenu() {
             const file = document.getElementById('menu-image').files[0];
-            if(!file) return alert("Select Image!");
+            if(!file) return alert("Select Photo!");
 
             const btn = document.getElementById('ocr-btn');
             const status = document.getElementById('status');
             btn.disabled = true;
-            status.innerText = "Processing image...";
+            status.innerText = "⏳ 1단계: 글자 인식 중...";
 
-            // 사진을 Base64로 변환 (학생들도 보게 하기 위함)
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onload = async () => {
-                base64Image = reader.result;
-                
+                currentBase64 = reader.result;
                 try {
+                    // OCR (한국어 위주)
                     const { data: { text } } = await Tesseract.recognize(file, 'kor');
-                    const cleanText = text.split('\n').filter(t => t.trim().length > 1).join(' / ');
+                    const lines = text.split('\n').filter(t => t.trim().length > 1);
+                    
+                    status.innerText = "⏳ 2단계: 번역 중...";
+                    let results = [];
+                    for(let line of lines) {
+                        const res = await fetch(`${GOOGLE_SCRIPT_URL}?q=${encodeURIComponent(line)}`);
+                        const translated = await res.text();
+                        // "한국어 (English)" 형식으로 생성
+                        results.push(`${line.trim()} (${translated.trim()})`);
+                    }
 
-                    status.innerText = "Translating...";
-                    const res = await fetch(`${GOOGLE_SCRIPT_URL}?q=${encodeURIComponent(cleanText)}`);
-                    const translated = await res.text();
-
-                    document.getElementById('menu-list-input').value = translated;
-                    status.innerText = "Done!";
-                } catch(e) { alert(e.message); }
+                    document.getElementById('menu-list-input').value = results.join(' / ');
+                    status.innerText = "✅ 인식 및 번역 완료!";
+                } catch(e) { alert(e.message); status.innerText = ""; }
                 btn.disabled = false;
             };
         }
 
-        // [기능 2] 메뉴 DB 저장 (이미지 포함)
+        // [기능 2] 데이터 저장 (영구 보존)
         async function saveMenu() {
             const listStr = document.getElementById('menu-list-input').value;
             const items = listStr.split('/').map(i => i.trim()).filter(i => i !== "");
             
             await db.collection("settings").doc("currentMenu").set({
                 items: items,
-                photo: base64Image,
-                updatedAt: new Date()
+                photo: currentBase64 || "",
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            alert("Menu Updated!");
+            alert("메뉴가 공개되었습니다!");
         }
 
-        // [기능 3] 학생 화면 렌더링 (다중 선택 가능)
-        function renderStudentView() {
+        // [기능 3] 실시간 동기화 (onSnapshot 사용 - 이게 핵심입니다!)
+        function startSync() {
+            // 메뉴 & 사진 동기화
             db.collection("settings").doc("currentMenu").onSnapshot(doc => {
                 if(!doc.exists) return;
                 const data = doc.data();
                 
-                // 사진 표시
+                // 사진 처리
                 if(data.photo) {
-                    const viewer = document.getElementById('menu-photo-viewer');
-                    viewer.classList.remove('hidden');
+                    document.getElementById('menu-photo-viewer').classList.remove('hidden');
                     document.getElementById('shared-menu-img').src = data.photo;
                 }
 
-                // 메뉴 버튼 생성
+                // 버튼 처리
                 const container = document.getElementById('student-menu-container');
                 container.innerHTML = "";
                 data.items.forEach(item => {
                     const b = document.createElement('button');
                     b.innerText = item;
-                    b.className = "w-full p-4 border rounded-xl bg-white text-left transition-all font-medium text-slate-700 shadow-sm";
+                    b.className = "w-full p-4 border rounded-xl bg-white text-left transition-all font-bold text-slate-700 shadow-sm";
                     b.onclick = () => {
                         if(selectedMenus.has(item)) {
                             selectedMenus.delete(item);
@@ -174,64 +170,62 @@
                     container.appendChild(b);
                 });
             });
-        }
 
-        // [기능 4] 주문 제출 (여러 메뉴 지원)
-        async function submitOrder() {
-            const name = document.getElementById('student-name').value.trim();
-            if(!name || selectedMenus.size === 0) return alert("Enter name and select at least one menu!");
+            // 주문 현황 실시간 동기화 (관리자용)
+            db.collection("orders").orderBy("timestamp", "desc").onSnapshot(snap => {
+                const area = document.getElementById('admin-stats-area');
+                let menuCounts = {};
+                let individualList = `<p class="font-bold text-indigo-600">[Individual Orders]</p>`;
 
-            await db.collection("orders").add({
-                name: name,
-                menus: Array.from(selectedMenus), // 배열로 저장
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            alert("Order Submitted! Thanks " + name);
-            location.reload(); // 선택 초기화
-        }
-
-        // [기능 5] 관리자 대시보드 (취소 기능 포함)
-        async function refreshStats() {
-            const snap = await db.collection("orders").orderBy("timestamp", "desc").get();
-            const area = document.getElementById('admin-stats-area');
-            
-            let menuStats = {};
-            let personHtml = `<p class="font-bold text-indigo-600">[Individual Orders]</p>`;
-
-            snap.forEach(doc => {
-                const data = doc.data();
-                const id = doc.id;
-                
-                // 통계 계산
-                data.menus.forEach(m => {
-                    menuStats[m] = (menuStats[m] || 0) + 1;
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    const id = doc.id;
+                    d.menus.forEach(m => { menuCounts[m] = (menuCounts[m] || 0) + 1; });
+                    individualList += `
+                        <div class="flex justify-between items-center bg-slate-50 p-2 rounded border border-slate-100">
+                            <span><strong>${d.name}</strong>: ${d.menus.join(', ')}</span>
+                            <button onclick="cancelOrder('${id}')" class="text-red-500 text-[10px] font-bold">CANCEL</button>
+                        </div>`;
                 });
 
-                // 리스트 UI (취소 버튼 포함)
-                personHtml += `
-                    <div class="flex justify-between items-center bg-indigo-100/50 p-2 rounded">
-                        <span><strong>${data.name}</strong>: ${data.menus.join(', ')}</span>
-                        <button onclick="cancelOrder('${id}')" class="text-red-500 text-xs font-bold bg-white px-2 py-1 rounded shadow-sm">Cancel</button>
-                    </div>
-                `;
+                let totalHtml = `<p class="font-bold text-indigo-600">[Menu Totals]</p>`;
+                for(let m in menuCounts) totalHtml += `<p>${m}: <strong>${menuCounts[m]}명</strong></p>`;
+                area.innerHTML = totalHtml + `<hr class="my-2">` + individualList;
             });
-
-            let statsHtml = `<p class="font-bold text-indigo-600">[Menu Totals]</p>`;
-            for(let m in menuStats) statsHtml += `<p>${m}: <strong>${menuStats[m]}</strong></p>`;
-
-            area.innerHTML = statsHtml + `<hr class="my-3 border-indigo-200">` + personHtml;
         }
 
-        // [기능 6] 주문 취소
+        // [기능 4] 주문 제출
+        async function submitOrder() {
+            const name = document.getElementById('student-name').value.trim();
+            if(!name || selectedMenus.size === 0) return alert("이름과 메뉴를 입력하세요!");
+
+            await db.collection("orders").add({
+                name,
+                menus: Array.from(selectedMenus),
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            alert("Order Success! Enjoy!");
+            selectedMenus.clear();
+            document.getElementById('student-name').value = "";
+            // 선택 효과 초기화를 위해 화면 갱신은 onSnapshot이 처리함
+        }
+
+        // [기능 5] 관리자 전용 삭제
         async function cancelOrder(id) {
-            if(confirm("정말 이 주문을 취소할까요?")) {
-                await db.collection("orders").doc(id).delete();
-                refreshStats();
-            }
+            if(confirm("이 주문을 삭제할까요?")) await db.collection("orders").doc(id).delete();
         }
 
-        // 초기 로드
-        renderStudentView();
+        async function resetSystem() {
+            if(!confirm("이번 식당의 모든 메뉴와 주문을 완전히 초기화할까요?")) return;
+            const orders = await db.collection("orders").get();
+            const batch = db.batch();
+            orders.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+            await db.collection("settings").doc("currentMenu").delete();
+            location.reload();
+        }
+
+        startSync();
     </script>
 </body>
 </html>
