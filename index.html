@@ -15,20 +15,20 @@
         <h1 class="text-2xl font-bold mb-6 text-center text-blue-600">🍴 Buddy Menu System</h1>
 
         <section class="mb-10 p-4 border-2 border-dashed border-blue-200 rounded-lg">
-            <h2 class="font-bold mb-2">1. 관리자: 메뉴판 등록</h2>
+            <h2 class="font-bold mb-2">1. 관리자: 메뉴판 등록 (자동 번역)</h2>
             <input type="file" id="menu-image" accept="image/*" class="text-sm mb-2">
-            <button onclick="recognizeText()" id="ocr-btn" class="w-full bg-blue-500 text-white py-2 rounded">사진 인식 시작</button>
-            <div id="status" class="text-xs mt-2 text-gray-500"></div>
-            <textarea id="menu-list" class="w-full mt-3 p-2 border text-sm" rows="4" placeholder="인식된 메뉴가 여기 뜹니다. (쉼표로 구분해서 수정 가능)"></textarea>
-            <button onclick="postMenu()" class="w-full mt-2 bg-green-500 text-white py-2 rounded">학생들에게 메뉴 공개</button>
+            <button onclick="recognizeAndTranslate()" id="ocr-btn" class="w-full bg-blue-500 text-white py-2 rounded font-bold">사진 인식 및 번역 시작</button>
+            <div id="status" class="text-xs mt-2 text-gray-500 font-medium"></div>
+            
+            <textarea id="menu-list" class="w-full mt-3 p-2 border text-sm" rows="4" placeholder="번역된 영어 메뉴가 여기에 표시됩니다."></textarea>
+            <button onclick="postMenu()" class="w-full mt-2 bg-green-500 text-white py-2 rounded font-bold">학생들에게 메뉴 공개</button>
         </section>
 
         <section class="mb-10">
-            <h2 class="font-bold mb-2 text-red-500">2. 학생: 메뉴 선택</h2>
-            <div id="student-menu-display" class="space-y-2 mb-4">
-                </div>
+            <h2 class="font-bold mb-2 text-red-500">2. 학생: 메뉴 선택 (Select Menu)</h2>
+            <div id="student-menu-display" class="space-y-2 mb-4"></div>
             <input type="text" id="student-name" placeholder="Enter your name" class="w-full p-2 border rounded mb-2">
-            <button onclick="submitOrder()" class="w-full bg-red-400 text-white py-3 rounded-lg font-bold">주문 신청 (Order)</button>
+            <button onclick="submitOrder()" class="w-full bg-red-400 text-white py-3 rounded-lg font-bold shadow-lg">주문 신청 (Order)</button>
         </section>
 
         <section class="border-t pt-5">
@@ -37,14 +37,14 @@
                 <button onclick="showByMenu()" class="text-xs bg-gray-200 px-3 py-1 rounded">메뉴별 보기</button>
                 <button onclick="showByPerson()" class="text-xs bg-gray-200 px-3 py-1 rounded">인원별 보기</button>
             </div>
-            <div id="result-display" class="text-sm space-y-1 bg-gray-50 p-3 rounded">
-                여기에 실시간 통계가 표시됩니다.
+            <div id="result-display" class="text-sm space-y-1 bg-gray-50 p-3 rounded min-h-[50px]">
+                실시간 현황이 표시됩니다.
             </div>
         </section>
     </div>
 
     <script>
-        // --- 1. Firebase 설정 (여기에 자신의 정보를 복사하세요) ---
+        // --- 1. 설정 (Firebase는 그대로 유지, Google URL만 추가) ---
         const firebaseConfig = {
             apiKey: "AIzaSyBzR_ECNVoulaILVVh5tPqPOenfq-MNIqA",
             authDomain: "menu-657dc.firebaseapp.com",
@@ -53,50 +53,70 @@
             messagingSenderId: "228708591373",
             appId: "1:228708591373:web:884f2c2e90c4323254f244"
         };
+        
+        // STEP 1에서 복사한 URL을 여기에 꼭 넣어주세요!
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzH1pghDcM-m3ELfqdJ3i2Iy0I2n1Fx9YLaT4kW57Iyppjm3KhXFPEC6pU79XTYd9j7LA/exec";
+
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-
         let selectedMenu = "";
 
-        // --- 2. 사진 인식 (OCR) 기능 ---
-        async function recognizeText() {
+        // --- 2. 사진 인식 및 자동 번역 기능 ---
+        async function recognizeAndTranslate() {
             const file = document.getElementById('menu-image').files[0];
-            if (!file) return alert("사진을 선택해주세요!");
+            if (!file) return alert("사진을 선택해주세요!(Please select a photo!)");
+            if (!GOOGLE_SCRIPT_URL.startsWith("https")) return alert("Google Script URL을 먼저 설정해주세요!(Please set the Google Script URL first!)");
             
             const btn = document.getElementById('ocr-btn');
             const status = document.getElementById('status');
             btn.disabled = true;
-            status.innerText = "Scanning text... (Wait 10-20s)";
-
-            const { data: { text } } = await Tesseract.recognize(file, 'eng+kor');
-            // 간단하게 엔터로 구분된 텍스트를 쉼표로 변환
-            document.getElementById('menu-list').value = text.split('\n').filter(t => t.trim().length > 1).join(', ');
             
-            btn.disabled = false;
-            status.innerText = "Scan complete!";
+            try {
+                // [A] OCR: 사진에서 한국어 텍스트 추출
+                status.innerText = "⏳ 1단계: 사진에서 글자 읽는 중... (10-20초) \n Pahse 1: Recognizing text from image... (10-20 seconds)";
+                const { data: { text } } = await Tesseract.recognize(file, 'kor');
+                const cleanText = text.split('\n').filter(t => t.trim().length > 1).join(', ');
+
+                // [B] Translation: 추출된 텍스트를 구글 번역기로 전송
+                status.innerText = "⏳ 2단계: 영어로 번역 중... \n Phase 2: Translating to English...";
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?q=${encodeURIComponent(cleanText)}`);
+                const translatedText = await response.text();
+
+                // 결과 표시
+                document.getElementById('menu-list').value = translatedText;
+                status.innerText = "✅ 번역 완료! 목록을 확인하고 수정하세요. \n ✅ Translation complete! Please check the list and make any necessary edits.";
+            } catch (err) {
+                console.error(err);
+                status.innerText = "❌ 에러 발생(error): " + err.message;
+            } finally {
+                btn.disabled = false;
+            }
         }
 
-        // --- 3. 메뉴 DB 등록 ---
+        // --- 3. 메뉴 DB 등록 (기존과 동일) ---
         function postMenu() {
-            const menus = document.getElementById('menu-list').value.split(',').map(m => m.trim());
+            const listVal = document.getElementById('menu-list').value;
+            if(!listVal) return alert("메뉴가 비어있습니다.");
+            const menus = listVal.split(',').map(m => m.trim()).filter(m => m !== "");
             db.collection("settings").doc("currentMenu").set({ items: menus });
-            alert("메뉴가 업데이트되었습니다!");
-            loadMenu();
+            alert("메뉴가 업데이트되었습니다!(Menu updated successfully!)");
         }
 
-        // --- 4. 학생용 메뉴 목록 불러오기 ---
+        // --- 4. 학생용 메뉴 목록 불러오기 (기존과 동일) ---
         function loadMenu() {
             db.collection("settings").doc("currentMenu").onSnapshot((doc) => {
                 const container = document.getElementById('student-menu-display');
                 container.innerHTML = "";
+                if(!doc.exists) return;
                 doc.data().items.forEach(item => {
                     const btn = document.createElement('button');
                     btn.innerText = item;
-                    btn.className = "w-full p-2 border rounded bg-white hover:bg-blue-50 text-left";
+                    btn.className = "w-full p-3 border rounded-xl bg-white hover:bg-blue-50 text-left transition shadow-sm";
                     btn.onclick = () => {
                         selectedMenu = item;
-                        Array.from(container.children).forEach(b => b.classList.remove('bg-blue-200'));
-                        btn.classList.add('bg-blue-200');
+                        Array.from(container.children).forEach(b => b.classList.replace('bg-blue-100', 'bg-white'));
+                        btn.classList.replace('bg-white', 'bg-blue-100');
+                        btn.classList.add('border-blue-500');
                     };
                     container.appendChild(btn);
                 });
@@ -106,14 +126,15 @@
         // --- 5. 주문 제출 ---
         function submitOrder() {
             const name = document.getElementById('student-name').value;
-            if (!name || !selectedMenu) return alert("이름과 메뉴를 선택하세요!");
+            if (!name || !selectedMenu) return alert("이름을 쓰고 메뉴를 클릭해주세요!(Write your name and select a menu!)");
 
             db.collection("orders").add({
                 name: name,
                 menu: selectedMenu,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
-            alert("Order Complete!");
+            alert("Order Complete! Thank you.");
+            document.getElementById('student-name').value = "";
         }
 
         // --- 6. 결과 보기 ---
@@ -125,7 +146,7 @@
                     stats[data.menu] = (stats[data.menu] || 0) + 1;
                 });
                 let html = "<strong>[메뉴별 통계]</strong><br>";
-                for (let m in stats) html += `${m}: ${stats[m]}명<br>`;
+                for (let m in stats) html += `• ${m}: ${stats[m]}명<br>`;
                 document.getElementById('result-display').innerHTML = html;
             });
         }
@@ -135,13 +156,12 @@
                 let html = "<strong>[인원별 주문 현황]</strong><br>";
                 snap.forEach(doc => {
                     const data = doc.data();
-                    html += `${data.name} ➡️ ${data.menu}<br>`;
+                    html += `- ${data.name}: ${data.menu}<br>`;
                 });
                 document.getElementById('result-display').innerHTML = html;
             });
         }
 
-        // 페이지 로드 시 메뉴 불러오기
         loadMenu();
     </script>
 </body>
