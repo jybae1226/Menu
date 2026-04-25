@@ -138,6 +138,25 @@
             alert("메뉴가 공개되었습니다!");
         }
 
+        async function saveMenu() {
+            const listStr = document.getElementById('menu-list-input').value;
+            const items = listStr.split('/').map(i => i.trim()).filter(i => i !== "");
+    
+            if(items.length === 0) return alert("메뉴가 비어있습니다!");
+
+            try {
+                await db.collection("settings").doc("currentMenu").set({
+                    items: items,
+                    photo: currentBase64 || "", // 여기서 에러가 나면 사진 용량이 너무 큰 것임
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                alert("✅ 서버 저장 성공! 이제 학생들도 볼 수 있습니다.");
+            } catch (error) {
+                console.error("저장 에러:", error);
+                alert("❌ 저장 실패! 사진 용량이 너무 크거나 설정 오류입니다. (사진 없이 시도해 보세요)");
+            }
+        }
+
         // [기능 3] 실시간 동기화 (onSnapshot 사용 - 이게 핵심입니다!)
         function startSync() {
             // 메뉴 & 사진 동기화
@@ -196,18 +215,39 @@
 
         // [기능 4] 주문 제출
         async function submitOrder() {
-            const name = document.getElementById('student-name').value.trim();
-            if(!name || selectedMenus.size === 0) return alert("이름과 메뉴를 입력하세요!");
+            const nameInput = document.getElementById('student-name');
+            const name = nameInput.value.trim();
+    
+            if(!name || selectedMenus.size === 0) {
+                return alert("Please enter your name and select at least one menu!");
+            }
 
-            await db.collection("orders").add({
-                name,
-                menus: Array.from(selectedMenus),
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            alert("Order Success! Enjoy!");
-            selectedMenus.clear();
-            document.getElementById('student-name').value = "";
-            // 선택 효과 초기화를 위해 화면 갱신은 onSnapshot이 처리함
+            try {
+                // 1. Firebase에 주문 데이터 전송
+                await db.collection("orders").add({
+                    name: name,
+                    menus: Array.from(selectedMenus),
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+        
+                alert("Order Success! Enjoy your meal, " + name);
+
+                // 2. 선택된 메뉴 데이터(Set) 초기화
+                selectedMenus.clear();
+
+                // 3. 버튼의 선택 효과(파란색 테두리 등) 모두 제거
+                const buttons = document.querySelectorAll('#student-menu-container button');
+                buttons.forEach(btn => {
+                    btn.classList.remove('selected');
+                });
+
+                // 4. 입력했던 이름 칸 비우기
+                nameInput.value = "";
+
+            } catch (error) {
+                console.error("Order Error:", error);
+                alert("Order failed. Please try again.");
+            }
         }
 
         // [기능 5] 관리자 전용 삭제
